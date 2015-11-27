@@ -34,15 +34,16 @@ def parse_primitive(primitive):
     if primitive[0] == "'":
         # It's a symbol.
         return pycket.symbol(primitive[1:])
-    if primitive[0] == "`":
-        # It's an s-expression.
-        return
-    try:
-        # Is it a number?
-        return pycket.number(primitive)
-    except:
-        # Maybe it's in the local namespace?
-        lookup(primitive)
+    elif primitive[0] == '#':
+        # It's a boolean.
+        return pycket.boolean(primitive)
+    else:
+        try:
+            # Is it a number?
+            return pycket.number(primitive)
+        except:
+            # Maybe it's in the local namespace?
+            lookup(primitive)
 
 def parse_input(user_input):
     if not user_input.startswith('('):
