@@ -1,5 +1,8 @@
 import re
 
+# This is necessary so 're' is not imported with 'number'.
+__all__ = ['number']
+
 class number(object):
     def __init__(self, num):
         # Check if we got a fraction. Create those recursively.
