@@ -3,10 +3,10 @@ def cons(first, l):
         return [first]
     if isinstance(first, type(l[0])):
         return [first] + l
-    raise ValueError("invalid cons(): {first} is not of type {type}".format(
-        first = repr(first),
-        type  = repr(type(l[0]).__name__))
-    )
+    raise ValueError("invalid cons(): {first_type} is not {l_type}".format(
+        first_type  = repr(type(first).__name__),
+        l_type      = repr(type(l[0]).__name__)
+    ))
 
 empty = []
 

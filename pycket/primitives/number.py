@@ -59,24 +59,48 @@ class number(object):
     def __float__(self):
         return float(self.numerator) / float(self.denominator)
     def __add__(self, other):
+        other = number(other)
         # Everything is stored as a fraction, so cross-multiply to add.
         # a/x + b/y = (ay + bx) / xy
         numerator   = (self.numerator * other.denominator) + (other.numerator * self.denominator)
         denominator = (self.denominator * other.denominator)
         return number('{}/{}'.format(numerator, denominator))
     def __mul__(self, other):
+        other = number(other)
         # Multiply straight across.
         numerator   = (self.numerator * other.numerator)
         denominator = (self.denominator * other.denominator)
         return number('{}/{}'.format(numerator, denominator))
     def __sub__(self, other):
-        return self.__add__(other * -1)
-    def __floordiv__(self, other):
-        return number(float(self) // float(other))
+        other = number(other)
+        return self.__add__(-other)
     def __div__(self, other):
+        other = number(other)
         return self.__mul__(number('{}/{}'.format(other.denominator, other.numerator)))
+    def __floordiv__(self, other):
+        other = number(other)
+        return number(float(self) // float(other))
     def __mod__(self, other):
+        other = number(other)
         return number(float(self) % float(other))
+    def __iadd__(self, other):
+        other = number(other)
+        self.numerator   = (self.numerator * other.denominator) + (other.numerator * self.denominator)
+        self.denominator = (self.denominator * other.denominator)
+        return self
+    def __imul__(self, other):
+        other = number(other)
+        self.numerator   = (self.numerator * other.numerator)
+        self.denominator = (self.denominator * other.denominator)
+        return self
+    def __isub__(self, other):
+        other = number(other)
+        self.__iadd__(-other)
+        return self
+    def __idiv__(self, other):
+        other = number(other)
+        self.__imul__(number('{}/{}'.format(other.denominator, other.numerator)))
+        return self
     def __lt__(self, other):
         return float(self) < float(other)
     def __le__(self, other):
@@ -89,3 +113,11 @@ class number(object):
         return float(self) >= float(other)
     def __gt__(self, other):
         return float(self) > float(other)
+    def __neg__(self):
+        return self * -1
+    def __pos__(self):
+        return self
+    def __abs__(self):
+        if self < 0:
+            return -self
+        return self
