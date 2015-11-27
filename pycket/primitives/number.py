@@ -42,7 +42,7 @@ class number(object):
             raise ZeroDivisionError("integer division or modulo by zero")
         if self.denominator == 1:
             if (self.numerator != 0 and
-                float(self.numerator) / float(self.numerator) == 1):
+                float(self.numerator) == int(self.numerator)):
                 self.numerator = int(self.numerator)
             return
         else:
