@@ -12,7 +12,7 @@ class boolean(object):
     def __str__(self):
         return '#t' if self.value else '#f'
     def __repr__(self):
-        return self.__str__()
+        return str(self)
     def __eq__(self, other):
         return self.value == other.value
     def __nonzero__(self):

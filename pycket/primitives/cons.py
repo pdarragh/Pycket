@@ -28,5 +28,5 @@ def rest(l):
 def reverse(l):
     return list(reversed(l))
 
-def isempty(l):
+def is_empty(l):
     return l == empty

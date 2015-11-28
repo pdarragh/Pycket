@@ -8,7 +8,7 @@ class symbol(object):
     def __str__(self):
         return "'{}".format(self.name)
     def __repr__(self):
-        return self.__str__()
+        return '{}'.format(self.name)
     def __eq__(self, other):
         try:
             return self.name == other.name

@@ -38,7 +38,7 @@ class number(object):
         else:
             return '{}/{}'.format(self.numerator, self.denominator)
     def __repr__(self):
-        return self.__str__()
+        return str(self)
     def __reduce__(self):
         # Check we don't have an illegal formation.
         if self.denominator == 0:
