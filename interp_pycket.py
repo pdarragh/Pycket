@@ -53,18 +53,40 @@ functions = {
     if isinstance(y, FunctionType)
 }
 
+def replace_builtin(exp):
+    if isinstance(exp, pycket.bare):
+        try:
+            return safe_list[exp.value]
+        except KeyError:
+            return lookup(exp.value)
+    else:
+        return exp
+
+def replace_builtins(exp):
+    if isinstance(exp, pycket.s_expression):
+        if exp.is_list:
+            # It's a list. Replace all the things!
+            stack = [replace_builtin(subexp) for subexp in exp.to_list]
+            exp.value = stack
+            return exp
+        else:
+            # Check if it's a bare type.
+            dummy = pycket.s_expression("'dumbdumb")
+            dummy.value = replace_builtin(exp.value)
+            return dummy
+    else:
+        return replace_builtin(exp)
+
 def custom_eval(sexp):
-    if not sexp.is_list():
+    if not sexp.is_list:
+        # Actually this is a function without arguments.
         raise RuntimeError("cannot execute: {}".format(sexp))
-    l = s_exp_to_list(sexp)
-    return eval(
-        '{func}({args})'.format(
-            l[0].value,
-            ', '.join([arg.value for arg in l[1:]])
-        ),
-        {'__builtins__': None},
-        safe_list
-    )
+    l = sexp.to_list
+    method = l[0]
+    if len(l) == 1:
+        return method()
+    else:
+        return method(*l[1:])
 
 def lookup(value):
     raise ValueError("{}: free variable".format(value))
@@ -73,13 +95,13 @@ def parse_primitive(sexp):
     return sexp
 
 def parse_input(user_input):
-    sexp = parse_sexp(user_input)
-    print("sexp: {}".format(sexp))
-    print("sexp.value: {}".format(sexp.value))
-    if user_input[0] == '(':
-        return custom_eval(sexp)
-    else:
-        return sexp
+    parsed   = parse_sexp(user_input)
+    replaced = [replace_builtins(exp) for exp in parsed]
+    for exp in replaced:
+        if user_input.startswith('('):
+            yield custom_eval(exp)
+        else:
+            yield exp
 
 if __name__ == '__main__':
     print("Safe List:")
@@ -96,9 +118,9 @@ if __name__ == '__main__':
             user_input = raw_input('>>> ').strip()
             if not user_input:
                 continue
-            result = parse_input(user_input)
-            print('~ {}'.format(type(result).__name__))
-            print('{}'.format(result))
+            for result in parse_input(user_input):
+                print('~ {}'.format(type(result).__name__))
+                print('{}'.format(result))
         except KeyboardInterrupt:
             print
             break

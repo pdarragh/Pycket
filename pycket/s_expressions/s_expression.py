@@ -18,136 +18,140 @@ def _matching_brace(brace):
             return opening
     return None
 
-def _parse_s_exp(text):
-    result = _parsed_list_from_text(text)[0]
-    if not result:
-        raise ValueError("invalid s-expression literal: {}".format(text))
-    result = _list_to_s_exp(result)
-    return result
-
-def _parsed_list_from_text(text, index=0, opening=None):
-    stack = []
-    in_word = False
-    while index < len(text):
-        if text[index] == "'":
-            stack.append(_s_exp_quote())
-            index += 1
-        elif text[index] == "`":
-            stack.append(_s_exp_backtick())
-            index += 1
-        elif text[index] == '"':
-            next_index = text.find('"', index + 1)
-            if next_index < 0:
-                raise ValueError("unbalanced quotes in s-expression")
-            stack.append(text[index + 1:next_index])
-            index = next_index + 1
-        if index >= len(text):
-            break
-        c = text[index]
-        if c in _BRACES.keys():
-            inner, inner_index = _parsed_list_from_text(text, index+1, c)
-            stack.append(inner)
-            index = inner_index + 1
-            in_word = False
-        elif c in _BRACES.values():
-            if opening != _matching_brace(c):
-                raise ValueError("unbalanced _BRACES in s-expression")
-            return stack, index
-        elif c == ' ':
-            in_word = False
-        else:
-            if in_word:
-                stack[-1] += c
-            else:
-                in_word = True
-                stack.append(c)
-        index += 1
-    return stack, index
-
-class _s_exp_quote(object):
-    def __str__(self):
-        return "_s_exp_quote"
-    def __repr__(self):
-        return str(self)
-
-class _s_exp_backtick(object):
-    def __str__(self):
-        return "_s_exp_backtick"
-    def __repr__(self):
-        return str(self)
-
-def _list_to_s_exp(exp):
-    """
-    returns an s_expression
-    """
-    if not exp:
-        raise ValueError("nothing to do")
-    result = []
-    index = 0
-    while index < len(exp):
-        subexp = exp[index]
-        if isinstance(subexp, _s_exp_quote):
-            if index == len(exp):
-                raise ValueError("invalid quoted expression")
-            index += 1
-            if isinstance(exp[index], _s_exp_quote) or isinstance(exp[index], _s_exp_backtick):
-                raise ValueError("invalid quoted expression")
-            if isinstance(exp[index], list):
-                result.append(exp[index])
-            else:
-                result.append(symbol(exp[index]))
-        elif isinstance(subexp, _s_exp_backtick):
-            if index == len(exp):
-                raise ValueError("invalid quoted expression")
-            index += 1
-            if isinstance(exp[index], _s_exp_quote) or isinstance(exp[index], _s_exp_backtick):
-                raise ValueError("invalid quoted expression")
-            result.append(exp[index])
-        else:
-            if isinstance(subexp, list):
-                result.append(_list_to_s_exp(subexp))
-            else:
-                result.append(subexp)
-        index += 1
-    if len(result) == 0:
-        raise ValueError("invalid assimilation: {}".format(exp))
-    elif len(result) > 1:
-        return s_expression(result)
+# Returns 2-tuple: the first "word", which is fully-parsed, and the remainder
+# of the text.
+#
+# This would make sense as a generator.
+def split_text(text):
+    # Ensure we have something.
+    if not text:
+        return None, None
+    # If we start with a quote, we should get everything through the next quote.
+    if text.startswith('"'):
+        try:
+            r_quote = text[1:].find('"')
+        except:
+            raise ValueError("incomplete quoted expression: {}".format(text))
+        if r_quote < 0:
+            raise ValueError("unbalanced quoted text: {}".format(text))
+        head = text[:r_quote + 2]
+        try:
+            tail = text[r_quote + 2:]
+        except:
+            tail = None
+    # Check if we have a brace.
+    elif text[0] in _BRACES.keys():
+        counts  = {brace : 0 for brace in _BRACES.keys()}
+        r_index = 0
+        for i in xrange(len(text)):
+            char = text[i]
+            if char in _BRACES.keys():
+                counts[char] += 1
+            elif char in _BRACES.values():
+                counts[_matching_brace(char)] -= 1
+            if sum(counts.values()) == 0:
+                r_index = i
+                break
+        if r_index <= 0:
+            raise ValueError("unbalanced braces in text: {}".format(text))
+        head = text[:r_index + 1]
+        try:
+            tail = text[r_index + 1:]
+        except:
+            tail = None
+    elif text.startswith('\'') or text.startswith('`'):
+        quotemark = text[0]
+        head, tail = split_text(text[1:])
+        if not head:
+            raise ValueError("invalid quote form: {}".format(text))
+        head = "{}{}".format(quotemark, head)
     else:
-        return s_expression(result[0])
+        # Find everything up to the first whitespace.
+        split = text.split(None, 1)
+        if len(split) == 1:
+            head = split[0]
+            tail = None
+        else:
+            head, tail = split
+    if tail:
+        tail = tail.strip()
+    return head, tail
+
+def read(text):
+    head, tail = split_text(text)
+    if not head:
+        return None
+    if head[0] == '"':
+        # The head is a quoted expression.
+        return string(head[1:-1])
+    elif head[0] in _BRACES:
+        # The head is a braced expression.
+        return s_expression(head[1:-1])
+    elif head[0] == "'":
+        # The head is a quote form.
+        return quote(head[1:])
+    elif head[0] == '`':
+        # The head is a quasiquote form.
+        return quasiquote(head[1:])
+    else:
+        # The head is something else; hopefully a primitive form.
+        try:
+            head = number(head)
+        except:
+            head = bare(head)
+        return head
+
+def _parse_s_exp(text):
+    tail = text
+    stack = []
+    while tail:
+        # Split the thing into a head and tail segment.
+        head, tail = split_text(tail)
+        head = read(head)
+        stack.append(head)
+    return stack
+
+def quote(text):
+    if not text:
+        return None
+    if text.startswith('('):
+        return s_expression(text)
+    else:
+        return symbol(text)
+
+def quasiquote(text):
+    if not text:
+        return None
+    return s_expression(text)
 
 class s_expression(object):
-    autoadds = [number, symbol, string]
-    def __init__(self, value):
-        if isinstance(value, list):
-            self.value = []
-            for exp in value:
-                if isinstance(exp, s_expression):
-                    self.value.append(exp)
-                else:
-                    self.value.append(s_expression(exp))
-        elif type(value) in self.autoadds:
-            self.value = value
-        elif isinstance(value, s_expression):
-            self.value = value
+    def __init__(self, text):
+        parsed = _parse_s_exp(text)
+        if not text or not parsed:
+            raise ValueError("invalid literal for s-expression: {}".format(text))
+        if len(parsed) == 1:
+            self.value = parsed[0]
         else:
-            try:
-                self.value = number(value)
-            except:
-                try:
-                    self.value = symbol(value)
-                except:
-                    self.value = string(value)
+            self.value = parsed
     def __str__(self):
-        if isinstance(self.value, list):
-            return "'{}".format(' '.join([repr(exp) for exp in self.value]))
+        if self.is_list:
+            return "'({})".format(' '.join([str(exp) for exp in self.value]))
         else:
-            return "'{}".format(repr(self.value))
+            return str(self.value)
+    def __repr__(self):
+        return str(self)
+    @property
     def is_list(self):
         return isinstance(self.value, list)
+    @property
+    def to_list(self):
+        if self.is_list:
+            return self.value
+        else:
+            raise ValueError("not a list: {}".format(self.value))
 
 def s_exp_to_list(sexp):
-    if not sexp.is_list():
+    if not sexp.is_list:
         raise ValueError("s-exp->list: not a list: {}".format(sexp))
     return sexp.value
 
